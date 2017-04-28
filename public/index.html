@@ -1,0 +1,76 @@
+
+<HTML>
+<head>
+  <meta name="viewport" content="width=320,initial-scale=1.0, maximum-scale=1.0,user-scalable=no" />
+<title>Grapevine</title>
+
+<script type="text/javascript"> // RELOADS WEBPAGE WHEN MOBILE ORIENTATION CHANGES  
+    window.addEventListener('orientationchange', function () {
+    var originalBodyStyle = getComputedStyle(document.body).getPropertyValue('display');
+    document.body.style.display='none';
+    setTimeout(function () {
+      document.body.style.display = originalBodyStyle;
+    }, 10);
+  });
+</script>
+
+<style>
+  h1 {
+   text-align:center;
+   position: relative;
+    bottom: -50%;
+    right: -50%;
+    transform: translateX(-50%) translateY(-50%);
+    font-size: 55;
+    color: white;
+    font-family: Helvetica;
+  }
+
+  p {
+    text-align:center;
+   position: relative;
+    bottom: -50%;
+    right: -50%;
+    transform: translateX(-50%) translateY(-50%);
+    font-size: 10;
+    color: white;
+    font-family: Helvetica;
+  }
+
+  .smaller { font-size:35%; }
+  .tiny { font-size:10%; }
+
+  .notbold {
+    font-weight:normal
+  } ​
+
+  a:hover, a:visited, a:link, a:active {
+   text-decoration: none;
+  } 
+</style>
+</head>
+
+<BODY bgcolor="#007AFF" link="white" vlink="white" alink="red">
+
+ <h1>
+  Grapevine
+  <br> 
+  <span class='tiny'><br></span>
+  <span class='smaller'>
+    <span class='notbold'>
+      Secretly chat with friends.
+    </span>
+  </span>
+  <hr style="height:1pt; visibility:hidden;" />
+	<a href="https://itunes.apple.com/app/id993218034">
+		<img src="badge.svg" alt="Download on the App Store.">
+	</a>
+</h1>
+<p>
+  <a href="terms/">Terms of Service</a><br>
+  <span class='tiny'><br></span>
+  <a href="privacy/">Privacy Policy</a>
+</p>
+
+</BODY>
+</HTML>

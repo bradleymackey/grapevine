@@ -1,0 +1,94 @@
+{
+	"rules": {
+		// ***** THE BLOCK NODE *****
+		"block": {
+			"$saltedID": {
+				".validate": "$saltedID.matches(/[0-9]_[0-9a-f]/) && $saltedID.length > 33 && $saltedID.length <= 52",
+				".read": "$saltedID.beginsWith(auth.token.firebase.identities['facebook.com'][0])",
+				".write": "$saltedID.beginsWith(auth.token.firebase.identities['facebook.com'][0])",
+				"$blockedUID": { ".validate": "$blockedUID.length < 33 && (newData.isString() && newData.val().length <= 21 || !newData.exists())" }
+			}
+		},
+		// ***** THE PUBLIC INFO NODE *****
+		"info": {
+			// info stored under nodes of the form $facebookID_$facebookIDMD5SaltedHash
+			// this provides security through obscurity
+			"$saltedID": {
+				// this must be a vaild facebookID, followed by and underscore, then MD5 hash (must be hexadecimal string of length 32)
+				".validate": "$saltedID.matches(/[0-9]_[0-9a-f]/) && $saltedID.length > 33 && $saltedID.length <= 52",
+				// *** NOTIFICATION TOKEN ***
+			   "token": {
+					// must be user friend to read
+					".read": "auth != null && auth.provider == 'facebook'",
+					// they must be the current user to write this
+					".write": "$saltedID.beginsWith(auth.token.firebase.identities['facebook.com'][0])", 
+					// token cannot be too long and must be a uuid (do a case insensitive check for this)
+					".validate" : "newData.isString() && newData.val().length == 36 && newData.val().matches(/[0-9A-F]+-[0-9A-F]+-[0-9A-F]+-[0-9A-F]+/i)"
+				},	
+				// *** TYPING ***
+				"t": {
+					// auth can read/write
+					".read": "auth != null && auth.provider == 'facebook'",
+					".write": "auth != null && auth.provider == 'facebook'",
+					// the new data must be either true or null
+					".validate": "newData.val() == true || !newData.exists()"
+				},
+				// no other info nodes allowed
+				"$other": { ".validate": false }
+			}
+		},
+		// ***** THE EPHEMERAL NODE *****
+		"eph": {
+			"$saltedID": {
+				// this must be a vaild facebookID, followed by and underscore, then MD5 hash (must be hexadecimal string of length 32)
+				".validate": "$saltedID.matches(/[0-9]_[0-9a-f]/) && $saltedID.length > 33 && $saltedID.length <= 52",
+				// *** MESSAGES ***
+				"msgs": {
+					// authenticated (and not blocked) can read or write
+					".read": "auth != null && auth.provider == 'facebook' && root.child('block').child($saltedID).child(auth.uid).val() == null",
+					// index on the timestamp (to ensure linear post ordering)
+					".indexOn": ["ts"],
+					// The message post
+					"$postID": {
+						".write": "auth != null && auth.provider == 'facebook' && root.child('block').child($saltedID).child(auth.uid).val() == null && (!newData.exists() && $saltedID.beginsWith(auth.token.firebase.identities['facebook.com'][0]) || newData.exists())",
+						// a message must have these children (id not required, either message or media link) - IF A MESSAGE ALREADY EXISTS, THEN THE ONLY FIELD THAT CAN BE ADDED IS THE FLAG
+						".validate": "(newData.hasChildren(['ts','who','e','uid']) && (newData.hasChild('msg') || newData.hasChild('lnki') || newData.hasChild('lnkv'))) || (data.hasChildren(['ts','who','e','uid']) && newData.hasChild('flg') && !newData.hasChild('msg') && !newData.hasChild('lnki') && !newData.hasChild('lnkv') && !newData.hasChild('id'))",
+						// a message must be less than 300 char and must be string
+						"msg": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length < 300 && !data.exists()" },
+						// image link must be less than 400 char and must be string
+						"lnki":{ ".validate": "newData.isString() && newData.val().length <= 400 && newData.val().length > 0 && !data.exists()" },
+						// video link must be less than 400 char and must be string
+						"lnkv":{ ".validate": "newData.isString() && newData.val().length <= 400 && newData.val().length > 0 && !data.exists()" },
+						// username must be under 21 characters and users can have the 'f' prefix with identity name if and only if they are the current user of the chat, otherwise just no 'f' can be used
+						"who": {".validate": "newData.isString() && newData.val().length > 1 && newData.val().length <= 21 && ((newData.val() == 'f' + auth.token.name && $saltedID.beginsWith(auth.token.firebase.identities['facebook.com'][0]) || (!newData.val().matches(/^f/) && !($saltedID.beginsWith(auth.token.firebase.identities['facebook.com'][0]))))) && !data.exists()" },  
+						// messages cannot be added NOW, 5 second buffer to account for internal slowness
+						"ts": { ".validate": "newData.val() <= (now+5000) && newData.isNumber() && !data.exists()" },
+						// the emoji must be under 30 characters (even though it should really just be 1 character because emoji is weird), tick only allowed if they are the current user
+						"e" : { ".validate": "newData.isString() && newData.val().length < 30 && newData.val().length > 0 && ((newData.val() == '✔️' && $saltedID.beginsWith(auth.token.firebase.identities['facebook.com'][0])) || (!newData.val().matches(/^✔️/) && !($saltedID.beginsWith(auth.token.firebase.identities['facebook.com'][0])))) && !data.exists()" },
+						// the id must be the notification token (a uuid)
+						"id" : { ".validate": "newData.isString() && newData.val().length == 36 && newData.val().matches(/[0-9A-F]+-[0-9A-F]+-[0-9A-F]+-[0-9A-F]+/i) && !data.exists()" },
+						// the user's uid (used for blocking and message identification)
+						"uid": { ".validate": "(!$saltedID.beginsWith(auth.token.firebase.identities['facebook.com'][0]) && newData.val() == auth.uid) || ($saltedID.beginsWith(auth.token.firebase.identities['facebook.com'][0]) && newData.val() == 'current') && !data.exists()" },
+						// whether a message has been flagged or not
+						"flg": { ".validate": "newData.isBoolean() && newData.val() == true && !data.exists()" },
+						// no other fields can be included in a message 
+						"$other": { ".validate": false }
+					}
+				},
+				// *** VIEWS ***
+				"v": {
+					// must be authenticated to read
+					".read":"auth != null && auth.provider == 'facebook' && root.child('block').child($saltedID).child(auth.uid).val() == null",
+					// own user cannot write
+					".write": "auth != null && !($saltedID.beginsWith(auth.token.firebase.identities['facebook.com'][0])) && root.child('block').child($saltedID).child(auth.uid).val() == null",
+					// must be a number 1 greater than what was there previously, or a fresh number 1
+					".validate": "newData.isNumber() && (data.exists() && (newData.val() == data.val()+1)) || (!data.exists() && newData.val() == 1)"
+				},
+				// no other ephemeral nodes allowed
+				"$other": { ".validate": false }
+			}
+		},
+		// *** DENY ANY OTHER ROOT NODES ***
+		"$other": { ".validate": false }
+	}
+}
