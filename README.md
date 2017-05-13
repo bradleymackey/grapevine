@@ -1,4 +1,4 @@
-# Backchat (since renamed to Grapevine)
+# Backchat v1.2 (since renamed to Grapevine)
 
 A little unpopular app I made for fun. Feel free to look and critique.
 
